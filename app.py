@@ -13,15 +13,7 @@ from openpyxl.utils import get_column_letter
 from datetime import datetime
 import tempfile
 
-# EasyOCR loaded lazily on first use (heavy import ~1GB model download on first run)
-_ocr_reader = None
-
-def get_ocr_reader():
-    global _ocr_reader
-    if _ocr_reader is None:
-        import easyocr
-        _ocr_reader = easyocr.Reader(["en"], gpu=False, verbose=False)
-    return _ocr_reader
+import pytesseract
 
 # Minimum digit length to be considered a valid SKU
 SKU_MIN_DIGITS = 4
@@ -57,20 +49,20 @@ def _barcode_scan(frame):
 
 
 def _ocr_scan(frame):
-    """Run EasyOCR on a frame, return set of digit sequences that look like SKUs."""
+    """Run Tesseract OCR on a frame, return set of digit sequences that look like SKUs."""
     found = set()
     try:
-        reader = get_ocr_reader()
-        results = reader.readtext(frame, detail=1, paragraph=False)
-        for (_bbox, text, conf) in results:
-            if conf < 0.5:
-                continue
-            # Keep only runs of digits (with optional dashes/slashes inside)
-            for token in text.split():
-                clean = re.sub(r"[^0-9\-\/]", "", token)
-                digits_only = re.sub(r"[^0-9]", "", clean)
-                if len(digits_only) >= SKU_MIN_DIGITS:
-                    found.add(clean.strip("-/"))
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Upscale for better OCR accuracy on small text
+        scale = 2
+        gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+        # Tesseract config: digits + letters, PSM 11 = sparse text
+        text = pytesseract.image_to_string(gray, config="--psm 11 -c tessedit_char_whitelist=0123456789-/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+        for token in text.split():
+            clean = re.sub(r"[^0-9\-\/]", "", token)
+            digits_only = re.sub(r"[^0-9]", "", clean)
+            if len(digits_only) >= SKU_MIN_DIGITS:
+                found.add(clean.strip("-/"))
     except Exception:
         pass
     return found
