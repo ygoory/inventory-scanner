@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ספירת מלאי</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a2e;
+    min-height: 100vh;
+  }
+
+  header {
+    background: linear-gradient(135deg, #1F497D, #2E75B6);
+    color: white;
+    padding: 18px 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  header h1 { font-size: 1.5rem; }
+  header p { font-size: 0.85rem; opacity: 0.85; margin-top: 4px; }
+
+  .container { max-width: 600px; margin: 0 auto; padding: 16px; }
+
+  /* Upload card */
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .card h2 { font-size: 1rem; color: #1F497D; margin-bottom: 14px; }
+
+  label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 6px; color: #444; }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: Arial;
+    transition: border-color 0.2s;
+    direction: ltr;
+    text-align: center;
+  }
+  input[type="text"]:focus { outline: none; border-color: #2E75B6; }
+
+  .file-drop {
+    border: 2.5px dashed #aac4e0;
+    border-radius: 10px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    background: #f7fbff;
+    transition: all 0.2s;
+    margin-top: 14px;
+    position: relative;
+  }
+  .file-drop:hover, .file-drop.drag-over { border-color: #2E75B6; background: #e8f2fc; }
+  .file-drop input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .file-drop .icon { font-size: 2.2rem; }
+  .file-drop .hint { font-size: 0.82rem; color: #888; margin-top: 6px; }
+  .file-name { font-size: 0.85rem; color: #2E75B6; margin-top: 8px; font-weight: bold; }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin-top: 14px;
+    background: #2E75B6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: Arial;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn:hover { background: #1F5F96; }
+  .btn:disabled { background: #aaa; cursor: not-allowed; }
+  .btn-export {
+    background: #107C41;
+  }
+  .btn-export:hover { background: #0a5c30; }
+  .btn-danger { background: #c0392b; }
+  .btn-danger:hover { background: #962d22; }
+
+  /* Progress bar */
+  .progress-wrap { margin-top: 14px; display: none; }
+  .progress-bar-bg { background: #e0e0e0; border-radius: 6px; height: 10px; overflow: hidden; }
+  .progress-bar { background: #2E75B6; height: 100%; width: 0%; transition: width 0.3s; border-radius: 6px; }
+  .progress-label { font-size: 0.8rem; color: #666; text-align: center; margin-top: 4px; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #333;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-size: 0.9rem;
+    transition: transform 0.3s;
+    z-index: 999;
+    max-width: 90%;
+    text-align: center;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.success { background: #107C41; }
+  #toast.error { background: #c0392b; }
+
+  /* Shelves list */
+  .shelf-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #f7fbff;
+    margin-bottom: 8px;
+    border: 1px solid #d0e4f5;
+  }
+  .shelf-item .shelf-info { font-size: 0.9rem; }
+  .shelf-item .shelf-name { font-weight: bold; color: #1F497D; }
+  .shelf-item .shelf-count { font-size: 0.8rem; color: #666; margin-top: 2px; }
+  .shelf-item .btn-del {
+    background: none;
+    border: none;
+    color: #c0392b;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .shelf-item .btn-del:hover { background: #fdecea; }
+
+  .empty-state { text-align: center; color: #aaa; padding: 20px; font-size: 0.9rem; }
+
+  .summary-badge {
+    display: inline-block;
+    background: #e8f2fc;
+    color: #1F497D;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-bottom: 12px;
+  }
+
+  /* Result popup */
+  .result-box {
+    background: #eaf5ec;
+    border: 1px solid #a8d5b0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    display: none;
+  }
+  .result-box .result-title { font-weight: bold; color: #107C41; margin-bottom: 8px; }
+  .result-box table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .result-box th, .result-box td { padding: 4px 8px; text-align: center; border-bottom: 1px solid #c5e8ca; }
+  .result-box th { background: #c5e8ca; font-weight: bold; }
+
+  .spinner {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 3px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-left: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📦 ספירת מלאי</h1>
+  <p>סרוק וידאו או תמונות לזיהוי ברקודים אוטומטי</p>
+</header>
+
+<div class="container">
+
+  <!-- Upload Card -->
+  <div class="card">
+    <h2>🔼 העלאת קובץ</h2>
+
+    <label for="shelf">מספר מדף</label>
+    <input type="text" id="shelf" placeholder="לדוגמה: 1, A3, מחסן-ב">
+
+    <div class="file-drop" id="dropZone">
+      <input type="file" id="fileInput" accept="video/*,image/*,.mp4,.mov,.avi,.mkv,.3gp,.m4v,.jpg,.jpeg,.png,.bmp,.webp,.heic">
+      <div class="icon">🎥</div>
+      <div>לחץ או גרור קובץ וידאו / תמונה</div>
+      <div class="hint">MP4, MOV, AVI, JPG, PNG ועוד</div>
+    </div>
+    <div class="file-name" id="fileName"></div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-label" id="progressLabel">מעבד...</div>
+    </div>
+
+    <button class="btn" id="uploadBtn" onclick="uploadFile()">סרוק ועדכן מלאי</button>
+
+    <div class="result-box" id="resultBox">
+      <div class="result-title" id="resultTitle"></div>
+      <table id="resultTable"><thead><tr><th>מקט</th><th>כמות</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- Inventory Summary -->
+  <div class="card">
+    <h2>📋 מלאי שנסרק</h2>
+    <div id="summaryBadge" class="summary-badge">0 מדפים | 0 מקטים</div>
+    <div id="shelvesList"><div class="empty-state">עוד לא הועלו קבצים</div></div>
+
+    <button class="btn btn-export" onclick="exportExcel()" id="exportBtn" disabled>
+      ⬇ ייצא לאקסל
+    </button>
+    <button class="btn btn-danger" onclick="clearAll()" style="margin-top:8px">
+      🗑 נקה הכל
+    </button>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+let selectedFile = null;
+
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const fileName = document.getElementById('fileName');
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) selectFile(fileInput.files[0]);
+});
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);
+});
+
+function selectFile(f) {
+  selectedFile = f;
+  fileName.textContent = '📎 ' + f.name + ' (' + (f.size / 1024 / 1024).toFixed(1) + ' MB)';
+}
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 3000);
+}
+
+async function uploadFile() {
+  const shelf = document.getElementById('shelf').value.trim();
+  if (!shelf) { showToast('נא להזין מספר מדף', 'error'); return; }
+  if (!selectedFile) { showToast('נא לבחור קובץ', 'error'); return; }
+
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true;
+  btn.innerHTML = 'מעבד... <span class="spinner"></span>';
+
+  const pw = document.getElementById('progressWrap');
+  const pb = document.getElementById('progressBar');
+  const pl = document.getElementById('progressLabel');
+  pw.style.display = 'block';
+
+  // Animate progress (fake — real processing happens server-side)
+  let prog = 0;
+  const interval = setInterval(() => {
+    prog = Math.min(prog + Math.random() * 8, 88);
+    pb.style.width = prog + '%';
+    pl.textContent = prog < 30 ? 'מחלץ פריימים...' : prog < 70 ? 'מזהה ברקודים...' : 'מסיים...';
+  }, 400);
+
+  const fd = new FormData();
+  fd.append('shelf', shelf);
+  fd.append('file', selectedFile);
+
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    clearInterval(interval);
+    pb.style.width = '100%';
+
+    if (!res.ok || data.error) {
+      pl.textContent = data.error || 'שגיאה';
+      showToast(data.error || 'שגיאה בעיבוד', 'error');
+    } else {
+      pl.textContent = `זוהו ${data.found} מקטים ✓`;
+      showToast(`מדף ${data.shelf}: ${data.found} מקטים זוהו`, 'success');
+      showResult(data);
+      loadShelves();
+    }
+  } catch(e) {
+    clearInterval(interval);
+    showToast('שגיאת תקשורת עם השרת', 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'סרוק ועדכן מלאי';
+  setTimeout(() => { pw.style.display = 'none'; pb.style.width = '0%'; }, 3000);
+}
+
+function showResult(data) {
+  const box = document.getElementById('resultBox');
+  const title = document.getElementById('resultTitle');
+  const tbody = document.querySelector('#resultTable tbody');
+
+  title.textContent = `✅ מדף ${data.shelf} — זוהו ${data.found} מקטים`;
+  tbody.innerHTML = '';
+  for (const [sku, qty] of Object.entries(data.new_items)) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${sku}</td><td>${qty}</td>`;
+    tbody.appendChild(tr);
+  }
+  box.style.display = 'block';
+}
+
+async function loadShelves() {
+  const res = await fetch('/api/shelves');
+  const data = await res.json();
+  const list = document.getElementById('shelvesList');
+  const badge = document.getElementById('summaryBadge');
+  const exportBtn = document.getElementById('exportBtn');
+
+  const totalSkus = data.total_skus;
+  const shelfCount = data.shelves.length;
+  badge.textContent = `${shelfCount} מדפים | ${totalSkus} מקטים`;
+  exportBtn.disabled = shelfCount === 0;
+
+  if (shelfCount === 0) {
+    list.innerHTML = '<div class="empty-state">עוד לא הועלו קבצים</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  for (const shelf of data.shelves) {
+    const skuCount = Object.keys(data.data[shelf]).length;
+    const totalQty = Object.values(data.data[shelf]).reduce((a,b)=>a+b,0);
+    const div = document.createElement('div');
+    div.className = 'shelf-item';
+    div.innerHTML = `
+      <div class="shelf-info">
+        <div class="shelf-name">מדף ${shelf}</div>
+        <div class="shelf-count">${skuCount} מקטים | ${totalQty} יחידות</div>
+      </div>
+      <button class="btn-del" onclick="deleteShelf('${shelf}')" title="מחק מדף">✕</button>
+    `;
+    list.appendChild(div);
+  }
+}
+
+async function deleteShelf(shelf) {
+  if (!confirm(`למחוק את מדף ${shelf}?`)) return;
+  await fetch(`/api/delete_shelf/${encodeURIComponent(shelf)}`, { method: 'DELETE' });
+  showToast(`מדף ${shelf} נמחק`);
+  loadShelves();
+}
+
+async function clearAll() {
+  if (!confirm('למחוק את כל הנתונים?')) return;
+  await fetch('/api/clear', { method: 'POST' });
+  showToast('כל הנתונים נמחקו');
+  document.getElementById('resultBox').style.display = 'none';
+  loadShelves();
+}
+
+function exportExcel() {
+  window.location.href = '/api/export';
+}
+
+// Load on start
+loadShelves();
+</script>
+</body>
+</html>
