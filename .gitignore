@@ -3,3 +3,6 @@ data/
 __pycache__/
 *.pyc
 .env
+
+# Claude Code local settings (per-machine)
+.claude/settings.local.json
